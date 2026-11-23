@@ -1,0 +1,356 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DealerOS | Reconciliation Dashboard</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #f4f6fa;
+            color: #202b3c;
+        }
+
+        header {
+            background: #17243b;
+            color: white;
+            padding: 22px 35px;
+        }
+
+        header h1 {
+            margin: 0;
+            font-size: 24px;
+        }
+
+        header p {
+            margin: 7px 0 0;
+            color: #cbd5e1;
+        }
+
+        main {
+            max-width: 1250px;
+            margin: 30px auto;
+            padding: 0 20px;
+        }
+
+        .toolbar, .summary, .table-card {
+            background: white;
+            padding: 22px;
+            border-radius: 10px;
+            margin-bottom: 22px;
+            box-shadow: 0 2px 10px rgba(0,0,0,.05);
+        }
+
+        .toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 18px;
+            align-items: end;
+        }
+
+        .field {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        label {
+            font-size: 13px;
+            font-weight: bold;
+        }
+
+        select {
+            min-width: 190px;
+            padding: 11px;
+            border: 1px solid #d6dce5;
+            border-radius: 6px;
+            background: white;
+        }
+
+        .summary {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .summary h2 {
+            margin: 0;
+            font-size: 18px;
+        }
+
+        .count {
+            font-size: 30px;
+            font-weight: bold;
+            color: #2458c6;
+        }
+
+        .table-card h2 {
+            font-size: 19px;
+            margin-top: 0;
+        }
+
+        .table-wrap {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 850px;
+        }
+
+        th, td {
+            padding: 14px 12px;
+            border-bottom: 1px solid #e8edf3;
+            text-align: left;
+            font-size: 13px;
+        }
+
+        th {
+            background: #f7f9fc;
+            color: #526078;
+        }
+
+        .reason {
+            display: inline-block;
+            background: #fff2d9;
+            color: #8b5700;
+            padding: 6px 9px;
+            border-radius: 5px;
+            font-size: 11px;
+            font-weight: bold;
+        }
+
+        .empty {
+            text-align: center;
+            padding: 35px;
+            color: #718096;
+        }
+
+        .status {
+            color: #64748b;
+            font-size: 13px;
+            margin-bottom: 15px;
+        }
+
+        @media(max-width: 600px) {
+            header {
+                padding: 20px;
+            }
+
+            .toolbar {
+                align-items: stretch;
+                flex-direction: column;
+            }
+
+            select {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <header>
+        <h1>DealerOS</h1>
+        <p>System A & System B Reconciliation Dashboard</p>
+    </header>
+
+    <main>
+        <section class="toolbar">
+            <div class="field">
+                <label for="org">Organization</label>
+                <select id="org">
+                    <option value="">Loading organizations...</option>
+                </select>
+            </div>
+
+            <div class="field">
+                <label for="reason">Disagreement Reason</label>
+                <select id="reason">
+                    <option value="">All Reasons</option>
+                    <option value="VALUE_MISMATCH">Value Mismatch</option>
+                    <option value="MISSING_IN_B">Missing in System B</option>
+                    <option value="ORPHAN_IN_B">Orphan in System B</option>
+                    <option value="DUPLICATE_IN_B">Duplicate in System B</option>
+                    <option value="DATE_MISMATCH">Date Mismatch</option>
+                    <option value="LOCATION_MISMATCH">Location Mismatch</option>
+                </select>
+            </div>
+
+            <div class="field">
+                <label for="sort">Sort by Value</label>
+                <select id="sort">
+                    <option value="-value">Highest First</option>
+                    <option value="value">Lowest First</option>
+                </select>
+            </div>
+        </section>
+
+        <section class="summary">
+            <h2>Total Disagreements</h2>
+            <div class="count" id="count">0</div>
+        </section>
+
+        <div class="status" id="status">Loading data...</div>
+
+        <section class="table-card">
+            <h2>Disagreement Records</h2>
+
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Reason</th>
+                            <th>Record ID</th>
+                            <th>Location</th>
+                            <th>System A Value</th>
+                            <th>System B Value</th>
+                            <th>Difference</th>
+                        </tr>
+                    </thead>
+
+                    <tbody id="records">
+                        <tr>
+                            <td colspan="6" class="empty">Loading records...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        const orgSelect = document.getElementById("org");
+        const reasonSelect = document.getElementById("reason");
+        const sortSelect = document.getElementById("sort");
+        const recordsBody = document.getElementById("records");
+        const countElement = document.getElementById("count");
+        const statusElement = document.getElementById("status");
+
+        function formatMoney(value) {
+            if (value === null || value === undefined) {
+                return "—";
+            }
+
+            return "₹" + Number(value).toLocaleString("en-IN", {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            });
+        }
+
+        async function loadOrganizations() {
+            try {
+                const response = await fetch("/api/organizations/");
+                if (!response.ok) {
+                    throw new Error("Could not load organizations");
+                }
+
+                const data = await response.json();
+
+                orgSelect.innerHTML = "";
+
+                data.organizations.forEach(org => {
+                    const option = document.createElement("option");
+                    option.value = org;
+                    option.textContent = org;
+                    orgSelect.appendChild(option);
+                });
+
+                await loadDisagreements();
+            } catch (error) {
+                statusElement.textContent = error.message;
+            }
+        }
+
+        async function loadDisagreements() {
+            const org = orgSelect.value;
+
+            if (!org) return;
+
+            statusElement.textContent = "Loading disagreements...";
+            recordsBody.innerHTML = "";
+
+            const params = new URLSearchParams({
+                org: org,
+                sort: sortSelect.value
+            });
+
+            if (reasonSelect.value) {
+                params.set("reason", reasonSelect.value);
+            }
+
+            try {
+                const response = await fetch(
+                    "/api/disagreements/?" + params.toString()
+                );
+
+                if (!response.ok) {
+                    throw new Error("Failed to load disagreements");
+                }
+
+                const data = await response.json();
+
+                countElement.textContent = data.count;
+                statusElement.textContent =
+                    "Showing " + data.count + " records for " + org;
+
+                if (data.disagreements.length === 0) {
+                    recordsBody.innerHTML =
+                        '<tr><td colspan="6" class="empty">' +
+                        'No disagreements found.</td></tr>';
+                    return;
+                }
+
+                data.disagreements.forEach(item => {
+                    const row = document.createElement("tr");
+
+                    const values = [
+                        item.reason,
+                        item.record_id,
+                        item.location,
+                        formatMoney(item.system_a_value),
+                        formatMoney(item.system_b_value),
+                        formatMoney(item.difference)
+                    ];
+
+                    values.forEach((value, index) => {
+                        const cell = document.createElement("td");
+
+                        if (index === 0) {
+                            const badge = document.createElement("span");
+                            badge.className = "reason";
+                            badge.textContent = value;
+                            cell.appendChild(badge);
+                        } else {
+                            cell.textContent = value;
+                        }
+
+                        row.appendChild(cell);
+                    });
+
+                    recordsBody.appendChild(row);
+                });
+
+            } catch (error) {
+                statusElement.textContent = error.message;
+                recordsBody.innerHTML =
+                    '<tr><td colspan="6" class="empty">' +
+                    'Unable to load records.</td></tr>';
+            }
+        }
+
+        orgSelect.addEventListener("change", loadDisagreements);
+        reasonSelect.addEventListener("change", loadDisagreements);
+        sortSelect.addEventListener("change", loadDisagreements);
+
+        loadOrganizations();
+    </script>
+</body>
+</html>
