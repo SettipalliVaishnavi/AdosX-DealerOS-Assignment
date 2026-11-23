@@ -7,7 +7,7 @@ SECRET_KEY = "django-insecure-adosx-dealeros-development-key-change-before-produ
 
 DEBUG = True
 
-ALLOWED_HOSTS = ["localhost", "127.0.0.1"]
+ALLOWED_HOSTS = ["localhost", "127.0.0.1", ".vercel.app"]
 
 INSTALLED_APPS = [
     "django.contrib.admin",
